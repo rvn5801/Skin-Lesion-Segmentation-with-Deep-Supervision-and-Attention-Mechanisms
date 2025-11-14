@@ -12,19 +12,19 @@
 
 ## 📖 Table of Contents
 
-1.  [🎯 Overview](#-overview)
-2.  [🚀 Key Features](#-key-features)
-3.  [🛠️ Installation](#️-installation)
-4.  [💾 Dataset](#-dataset)
-5.  [📂 Project Structure](#-project-structure)
-6.  [▶️ Usage](#️-usage)
+1.  [Overview](#-overview)
+2.  [Key Features](#-key-features)
+3.  [Installation](#️-installation)
+4.  [Dataset](#-dataset)
+5.  [Project Structure](#-project-structure)
+6.  [Usage](#️-usage)
     * [Training](#training)
     * [Batch Prediction](#batch-prediction)
     * [Single Image Inference](#single-image-inference)
 
 ---
 
-## 🎯 Overview
+## Overview
 
 Skin cancer is a prevalent global health issue, with melanoma being particularly aggressive. **Early and accurate detection is paramount.** This project introduces **DS-AttentionUNet**, an advanced deep learning model specifically engineered for skin lesion segmentation from dermoscopic images. This segmentation is a vital initial step in computer-aided diagnosis (CAD) systems, aiming to assist clinicians in making faster and more accurate diagnoses.
 
@@ -33,19 +33,19 @@ Achieving a **Dice coefficient of $0.6611 \pm 0.2060$** and an **IoU of $0.5251 
 
 ---
 
-## 🚀 Key Features
+##  Key Features
 
-* **🎯 Attention Gates:** Intelligently focus on relevant lesion features while filtering out noise and irrelevant artifacts.
-* **💡 Deep Supervision:** Enhances gradient flow and learning by integrating supervision signals at multiple decoder stages.
-* **⚖️ Group Normalization:** Provides stable performance, especially effective with smaller batch sizes common in medical imaging.
-* **⚡ Mixed Precision Training:** Accelerates training and reduces GPU memory footprint without sacrificing accuracy.
-* **📈 OneCycleLR:** Implements an efficient learning rate schedule for faster convergence and better generalization.
-* **🧩 Composite Loss Function:** A powerful blend of BCE, Dice, and Focal Tversky losses to tackle class imbalance and optimize for segmentation quality.
-* **📊 Detailed Visualization:** Offers comprehensive performance metrics and clear visual outputs for in-depth analysis.
+* **Attention Gates:** Intelligently focus on relevant lesion features while filtering out noise and irrelevant artifacts.
+* **Deep Supervision:** Enhances gradient flow and learning by integrating supervision signals at multiple decoder stages.
+* **Group Normalization:** Provides stable performance, especially effective with smaller batch sizes common in medical imaging.
+* **Mixed Precision Training:** Accelerates training and reduces GPU memory footprint without sacrificing accuracy.
+* **OneCycleLR:** Implements an efficient learning rate schedule for faster convergence and better generalization.
+* **Composite Loss Function:** A powerful blend of BCE, Dice, and Focal Tversky losses to tackle class imbalance and optimize for segmentation quality.
+* **Detailed Visualization:** Offers comprehensive performance metrics and clear visual outputs for in-depth analysis.
 
 ---
 
-## 🛠️ Installation
+## Installation
 
 Get DS-AttentionUNet up and running on your system.
 
@@ -91,7 +91,7 @@ The `requirements.txt` file includes:
 
 ---
 
-## 💾 Dataset
+## Dataset
 
 This project is designed for the **ISIC 2018 Skin Lesion Analysis Towards Melanoma Detection Challenge dataset**.
 
@@ -109,30 +109,30 @@ This project is designed for the **ISIC 2018 Skin Lesion Analysis Towards Melano
 
 ### Configuration
 
-❗ **Important:** Update the dataset path in `config.py` to point to your local `Data` directory:
+ **Important:** Update the dataset path in `config.py` to point to your local `Data` directory:
 
 ```python
 # In config.py
 BASE_DIR = '/path/to/your/Data'
 ```
 
-📂 Project Structure
+Project Structure
 A glimpse into the organization of the codebase:
 ```
 isic_segmentation/
-├── config.py            # ⚙️ Configuration settings (paths, hyperparameters)
-├── dataset.py           # 🖼️ Dataset loading, preprocessing, and augmentation
-├── unet.py              # 🧠 DS-AttentionUNet model architecture
-├── metrics.py           # 📈 Loss functions and evaluation metrics
-├── visualization.py     # 🎨 Utilities for generating plots and visual results
-├── train.py             # 🚂 Script for training the model
-├── predict.py           # 💨 Script for batch prediction on multiple images
-├── inference.py         # 🔎 Script for single image inference
-├── main.py              # 🚀 Main entry point for all commands (train, predict, inference)
-├── requirements.txt     # 📦 Python package dependencies
-└── README.md            # 📄 You are here!
+├── config.py            # Configuration settings (paths, hyperparameters)
+├── dataset.py           # Dataset loading, preprocessing, and augmentation
+├── unet.py              # DS-AttentionUNet model architecture
+├── metrics.py           # Loss functions and evaluation metrics
+├── visualization.py     # Utilities for generating plots and visual results
+├── train.py             # Script for training the model
+├── predict.py           # Script for batch prediction on multiple images
+├── inference.py         # Script for single image inference
+├── main.py              # Main entry point for all commands (train, predict, inference)
+├── requirements.txt     # Python package dependencies
+└── README.md            # You are here!
 ```
-▶️ Usage
+Usage
 The main.py script serves as a unified interface for all operations.
 
 Basic Command Structure
