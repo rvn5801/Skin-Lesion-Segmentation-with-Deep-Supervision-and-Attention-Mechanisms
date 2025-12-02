@@ -1,0 +1,86 @@
+version: '3.8'
+
+services:
+  # --- [ NEW ] API Service (This one we build) ---
+  api-service:
+    build:
+      context: .
+      dockerfile: Dockerfile.api # <-- It will build this new file
+    ports:
+      - "8000:8000" 
+    volumes:
+      - .:/app
+      - ./mlruns:/app/mlruns
+    environment:
+      - MLFLOW_TRACKING_URI=sqlite:////app/mlruns/mlflow.db
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    stdin_open: true
+    tty: true
+
+  # --- [ NEW ] Prometheus Monitoring Service ---
+  prometheus:
+    image: prom/prometheus:v2.45.0
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+
+  # --- [ NEW ] Grafana Visualization Service ---
+  grafana:
+    image: grafana/grafana:10.0.0
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana-storage:/var/lib/grafana
+
+ 
+  training-service:
+    image: skin-lesion-trainer # <-- USES YOUR PRE-BUILT IMAGE
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    volumes:
+      - .:/app
+      - ./mlruns:/app/mlruns # <-- ADDED THIS to save MLflow data
+      - "C:\\Users\\alone\\Downloads\\SkinLession_data:/app/SkinLession_data"
+    environment:
+      - MLFLOW_TRACKING_URI=sqlite:////app/mlruns/mlflow.db # <-- Changed to new path
+    command: >
+      bash -c "python3 train.py --loss focal_tversky --run_name 'docker_compose_run'"
+    stdin_open: true
+    tty: true
+
+  # --- [ UPDATED ] Your Existing Evaluation Service (Uses your image) ---
+  evaluation-service:
+    image: skin-lesion-trainer # <-- USES YOUR PRE-BUILT IMAGE
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    volumes:
+      - .:/app
+      - ./mlruns:/app/mlruns # <-- ADDED THIS
+      - "C:\\Users\\alone\\Downloads\\SkinLession_data:/app/SkinLession_data"
+    environment:
+      - MLFLOW_TRACKING_URI=sqlite:////app/mlruns/mlflow.db # <-- Changed to new path
+    command: python3 evaluate.py
+    stdin_open: true
+    tty: true
+
+volumes:
+  grafana-storage: {} # Persists Grafana dashboards

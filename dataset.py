@@ -20,8 +20,10 @@ class ISICDataset(Dataset):
         self.mask_paths = mask_paths
         self.transform = transform
         self.normalize = normalize
-        self.mean = None
-        self.std = None
+        # self.mean = None
+        # self.std = None
+        self.mean: np.ndarray | None = None
+        self.std: np.ndarray | None = None
     
     def __len__(self):
         return len(self.img_paths)
@@ -69,8 +71,11 @@ class ISICDataModule:
         self.test_img_paths = []
         self.test_mask_paths = []
         
-        self.mean = np.array([0.485, 0.456, 0.406])
-        self.std = np.array([0.229, 0.224, 0.225])
+        # self.mean = np.array([0.485, 0.456, 0.406])
+        # self.std = np.array([0.229, 0.224, 0.225])
+
+        self.mean = np.array([0.70809584, 0.58178357, 0.53571441])
+        self.std = np.array([0.15733581, 0.16560281, 0.18079209])
         
         self.train_transform = None
         self.val_transform = None
@@ -147,7 +152,8 @@ class ISICDataModule:
         # Take a sample of images to calculate mean and std
         sample_size = min(100, len(self.train_img_paths))
         sample_paths = np.random.choice(self.train_img_paths, sample_size, replace=False)
-        
+
+        # sample_paths = self.train_img_paths
         samples = []
         for path in tqdm(sample_paths, desc="Loading samples for stats"):
             img = cv2.imread(path)
@@ -186,20 +192,23 @@ class ISICDataModule:
         self.load_paths()
         
         # Calculate stats for normalization
-        self._calculate_stats()
+        # self._calculate_stats()
         
         # Set up transformations
         if self.config.AUGMENTATION:
         
             self.train_transform = A.Compose([
                 
+                
                 A.HorizontalFlip(p=0.5),
                 A.VerticalFlip(p=0.5),
                 A.RandomRotate90(p=0.5),
                 
                 # Enhanced augmentations for hard cases
-                A.ElasticTransform(alpha=120, sigma=120 * 0.05, alpha_affine=120 * 0.03, p=0.3),
+                A.ElasticTransform(alpha=120, sigma=120 * 0.05, alpha_affine=120 * 0.03, p=0.3), # type: ignore
                 A.GridDistortion(p=0.2),
+
+                A.CoarseDropout(num_holes=8, max_h_size=25, max_w_size=25, fill_value=0, p=0.5),
                 
                 # Better contrast handling (crucial for low-contrast lesions)
                 A.RandomBrightnessContrast(brightness_limit=0.2, contrast_limit=0.3, p=0.5),
@@ -211,7 +220,7 @@ class ISICDataModule:
                 
                 # Geometric transformations
                 A.ShiftScaleRotate(shift_limit=0.1, scale_limit=0.15, rotate_limit=30, p=0.5),
-            ])
+            ]) # type: ignore
         
         # Simple transformation for validation and test (just resize)
         self.val_transform = A.Compose([])
@@ -337,7 +346,10 @@ class ISICDataModule:
                 # Create overlay
                 aug_mask_rgb = np.zeros_like(aug_img)
                 aug_mask_rgb[:,:,1] = (aug_mask > 127).astype(np.uint8) * 255
+                # Simple fix: Clip the values back to a displayable range
+                # aug_img_clipped = np.clip(aug_img, 0, 1)
                 overlay = cv2.addWeighted(aug_img, 1, aug_mask_rgb, 0.5, 0)
+                
                 
                 plt.subplot(num_samples, num_augmentations+1, i*(num_augmentations+1)+j+2)
                 plt.imshow(overlay)

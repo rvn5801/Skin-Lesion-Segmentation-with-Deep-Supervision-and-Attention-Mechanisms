@@ -348,6 +348,12 @@ class TestEvaluator:
                     
                     # Calculate metrics
                     metrics = calculate_metrics(pred, mask)
+                    # Get the global index to find the image name
+                    global_idx = (batch_idx * self.test_loader.batch_size) + i
+                    if global_idx < len(self.dataset.test_img_paths):
+                        metrics['image_name'] = os.path.basename(self.dataset.test_img_paths[global_idx])
+                    else:
+                        metrics['image_name'] = f"unknown_idx_{global_idx}"
                     all_metrics.append(metrics)
                     all_dice_scores.append(metrics['dice'])
                     
@@ -356,15 +362,23 @@ class TestEvaluator:
                         all_images.append(img.cpu())
                         all_masks.append(mask.cpu())
                         all_preds.append(pred.cpu())
+
+        # Save all individual metrics to a new CSV file
+        all_metrics_df = pd.DataFrame(all_metrics)
+        all_metrics_df = all_metrics_df.sort_values(by='dice', ascending=True) # Sort worst to best
+        csv_path = os.path.join(self.visualization_dir, 'all_test_scores.csv')
+        all_metrics_df.to_csv(csv_path, index=False)
         
         # Calculate average metrics
         avg_metrics = {}
         for key in all_metrics[0].keys():
-            values = [m[key] for m in all_metrics]
-            avg_metrics[key] = np.mean(values)
-            avg_metrics[f'{key}_std'] = np.std(values)
-            avg_metrics[f'{key}_min'] = np.min(values)
-            avg_metrics[f'{key}_max'] = np.max(values)
+            if key != 'image_name':
+                values = [m[key] for m in all_metrics]
+            # values = [m[key] for m in all_metrics]
+                avg_metrics[key] = np.mean(values)
+                avg_metrics[f'{key}_std'] = np.std(values)
+                avg_metrics[f'{key}_min'] = np.min(values)
+                avg_metrics[f'{key}_max'] = np.max(values)
         
         # Save metrics to CSV
         metrics_df = pd.DataFrame([avg_metrics])
@@ -484,7 +498,28 @@ class TestEvaluator:
                 print(f"Warning: Index {idx} out of range for images list of length {len(images)}")
                 continue
                 
-            img = images[idx].permute(1, 2, 0).numpy()
+            # img = images[idx].permute(1, 2, 0).numpy()
+            # --- START OF NEW DENORMALIZATION FIX ---
+            img_tensor = images[idx].cpu()
+            
+            # Get the correct stats from the live dataset object
+            mean = self.dataset.mean
+            std = self.dataset.std
+
+            # Ensure they are tensors for broadcasting
+            if not isinstance(mean, torch.Tensor):
+                mean = torch.tensor(mean, dtype=img_tensor.dtype)
+            if not isinstance(std, torch.Tensor):
+                std = torch.tensor(std, dtype=img_tensor.dtype)
+
+            # Reshape for C, H, W format
+            mean = mean.reshape(3, 1, 1)
+            std = std.reshape(3, 1, 1)
+
+            # Denormalize and clip
+            img_denorm = img_tensor * std + mean
+            img_denorm = torch.clamp(img_denorm, 0, 1) # This clip fixes the warning
+            img = img_denorm.permute(1, 2, 0).numpy() # Convert to numpy for plotting
             mask = masks[idx].squeeze().numpy()
             pred = preds[idx].squeeze().numpy()
             dice = scores[idx]
@@ -590,113 +625,7 @@ class TestEvaluator:
         except Exception as e:
             print(f"Warning: Could not create individual overlays: {e}")
     
-    # def visualize_best_worst(self, images, masks, preds, scores, n_samples=5):
-    #     """Visualize best and worst predictions based on Dice scores"""
-    #     # Sort indices by dice score
-    #     indices = np.argsort(scores)
-        
-    #     # Get worst and best indices
-    #     worst_indices = indices[:n_samples]
-    #     best_indices = indices[-n_samples:]
-        
-    #     # Create visualization directories
-    #     os.makedirs(os.path.join(self.visualization_dir, 'best'), exist_ok=True)
-    #     os.makedirs(os.path.join(self.visualization_dir, 'worst'), exist_ok=True)
-        
-    #     # Visualize worst predictions
-    #     plt.figure(figsize=(15, 5 * n_samples))
-    #     for i, idx in enumerate(worst_indices):
-    #         img = images[idx].permute(1, 2, 0).numpy()
-    #         mask = masks[idx].squeeze().numpy()
-    #         pred = preds[idx].squeeze().numpy()
-    #         dice = scores[idx]
-            
-    #         # Original image
-    #         plt.subplot(n_samples, 3, i*3+1)
-    #         plt.imshow(img)
-    #         plt.title(f"Image (Dice: {dice:.4f})")
-    #         plt.axis('off')
-            
-    #         # Ground truth mask
-    #         plt.subplot(n_samples, 3, i*3+2)
-    #         plt.imshow(mask, cmap='gray')
-    #         plt.title("Ground Truth")
-    #         plt.axis('off')
-            
-    #         # Predicted mask
-    #         plt.subplot(n_samples, 3, i*3+3)
-    #         plt.imshow(pred, cmap='gray')
-    #         plt.title("Prediction")
-    #         plt.axis('off')
-        
-    #     plt.tight_layout()
-    #     plt.savefig(os.path.join(self.visualization_dir, 'worst_predictions.png'))
-    #     plt.close()
-        
-    #     # Visualize best predictions
-    #     plt.figure(figsize=(15, 5 * n_samples))
-    #     for i, idx in enumerate(best_indices):
-    #         img = images[idx].permute(1, 2, 0).numpy()
-    #         mask = masks[idx].squeeze().numpy()
-    #         pred = preds[idx].squeeze().numpy()
-    #         dice = scores[idx]
-            
-    #         # Original image
-    #         plt.subplot(n_samples, 3, i*3+1)
-    #         plt.imshow(img)
-    #         plt.title(f"Image (Dice: {dice:.4f})")
-    #         plt.axis('off')
-            
-    #         # Ground truth mask
-    #         plt.subplot(n_samples, 3, i*3+2)
-    #         plt.imshow(mask, cmap='gray')
-    #         plt.title("Ground Truth")
-    #         plt.axis('off')
-            
-    #         # Predicted mask
-    #         plt.subplot(n_samples, 3, i*3+3)
-    #         plt.imshow(pred, cmap='gray')
-    #         plt.title("Prediction")
-    #         plt.axis('off')
-        
-    #     plt.tight_layout()
-    #     plt.savefig(os.path.join(self.visualization_dir, 'best_predictions.png'))
-    #     plt.close()
-        
-    #     # Save individual images for best and worst cases
-    #     for i, idx in enumerate(worst_indices):
-    #         img = images[idx].permute(1, 2, 0).numpy()
-    #         mask = masks[idx].squeeze().numpy()
-    #         pred = preds[idx].squeeze().numpy()
-            
-    #         # Create overlay
-    #         overlay = self.create_overlay(img, mask, pred)
-            
-    #         # Save the overlay
-    #         plt.figure(figsize=(8, 8))
-    #         plt.imshow(overlay)
-    #         plt.title(f"Worst Case {i+1} (Dice: {scores[idx]:.4f})")
-    #         plt.axis('off')
-    #         plt.tight_layout()
-    #         plt.savefig(os.path.join(self.visualization_dir, 'worst', f'worst_case_{i+1}.png'))
-    #         plt.close()
-        
-    #     for i, idx in enumerate(best_indices):
-    #         img = images[idx].permute(1, 2, 0).numpy()
-    #         mask = masks[idx].squeeze().numpy()
-    #         pred = preds[idx].squeeze().numpy()
-            
-    #         # Create overlay
-    #         overlay = self.create_overlay(img, mask, pred)
-            
-    #         # Save the overlay
-    #         plt.figure(figsize=(8, 8))
-    #         plt.imshow(overlay)
-    #         plt.title(f"Best Case {i+1} (Dice: {scores[idx]:.4f})")
-    #         plt.axis('off')
-    #         plt.tight_layout()
-    #         plt.savefig(os.path.join(self.visualization_dir, 'best', f'best_case_{i+1}.png'))
-    #         plt.close()
+
     
     def create_overlay(self, img, mask, pred, threshold=0.5):
         """Create overlay of ground truth and prediction on image"""
