@@ -1,0 +1,1 @@
+MODEL_NAME = "DS-AttentionUNet-Skin-Lesion"

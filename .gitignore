@@ -1,0 +1,12 @@
+# 1. Ignore EVERYTHING
+*
+
+# 2. But... DO NOT ignore directories
+!*/
+
+# 3. But... DO NOT ignore the files we want
+!*.py
+!*.yml
+
+# 4. Don't forget to track the .gitignore file itself
+!/.gitignore
