@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.pyc
+
+# Notebooks & data
+*.ipynb
+*.csv
+*.db
+*.bat
+
+# ML / experiment artifacts
+mlruns/
+outputs/
+predictions_sorted_by_dice/
+SkinLession_data/
+
+# OS / editor
+.DS_Store
+.vscode/
+
+*.txt
+!requirements.txt

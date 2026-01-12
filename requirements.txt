@@ -1,0 +1,18 @@
+# Core DL & ML
+torch>=1.12.0
+torchvision>=0.13.0
+mlflow
+scikit-learn>=1.0.2
+
+# Data & Ops
+pandas>=1.4.1
+numpy>=1.22.3
+opencv-python>=4.5.5
+albumentations>=1.3.0
+
+# Visualization & Utils
+matplotlib>=3.5.1
+tqdm>=4.63.0
+seaborn
+prometheus-fastapi-instrumentator
+python-multipart
