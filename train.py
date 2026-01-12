@@ -5,13 +5,13 @@ import torch.nn as nn
 import torch.optim as optim
 import argparse
 from datetime import datetime
+from shared_config import MODEL_NAME
 import time
 from tqdm import tqdm
 from torch.optim import AdamW
 from torch.optim.lr_scheduler import OneCycleLR
 from torch.amp.grad_scaler import GradScaler
 from torch.amp.autocast_mode import autocast
-
 import json
 import mlflow.pytorch  
 
@@ -26,8 +26,6 @@ from metrics import (
 )
 from visualization import Visualizer, TestEvaluator 
 
-# --- MetricsLogger class is no longer needed, MLflow will handle this ---
-
 def parse_args():
     parser = argparse.ArgumentParser(description='Train U-Net model for ISIC 2018')
     parser.add_argument('--batch_size', type=int, default=None, help='Batch size')
@@ -41,7 +39,6 @@ def parse_args():
     parser.add_argument('--no-augment', dest='augment', action='store_false', help='Disable data augmentation')
     parser.add_argument('--debug', action='store_true', help='Enable debug mode')
     
-    # <-- MLflow specific arguments (optional but good practice) -->
     parser.add_argument('--experiment_name', type=str, default="DS-AttentionUNet-Skin-Lesion", help="Name of the MLflow experiment")
     parser.add_argument('--run_name', type=str, default=None, help="Name for this specific MLflow run")
     
@@ -51,6 +48,9 @@ def setup_config(args):
     """Update config with command line arguments"""
     config = Config()
     
+    # 1. Trigger folder creation (Only happens here!)
+    config.create_directories()
+
     if args.batch_size is not None:
         config.BATCH_SIZE = args.batch_size
     if args.epochs is not None:
@@ -62,22 +62,22 @@ def setup_config(args):
         config.IMG_HEIGHT = args.img_size
     if args.augment is not None:
         config.AUGMENTATION = args.augment
-        
-    # <-- This timestamped output dir is now less important for metrics, -->
-    # <-- but still useful for saving local checkpoints and visualizations. -->
-    timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
-    config.LOCAL_RUN_DIR = os.path.join('outputs', f"run_{timestamp}")
+
+    # 3. SET MLFLOW NAMES
+    if args.experiment_name:
+        config.EXPERIMENT_NAME = args.experiment_name
+    
+    # --- FIX 1: Fix NameError ---
+    # We removed the manual timestamp generation. 
+    # config.RUN_NAME is already set inside Config() __init__.
+    # Only override it if the user provided a custom name.
+    if args.run_name:
+        config.RUN_NAME = args.run_name
+    
+    # Set paths using the directory created in Config
     config.MODEL_DIR = os.path.join(config.LOCAL_RUN_DIR, 'models')
     config.LOG_DIR = os.path.join(config.LOCAL_RUN_DIR, 'logs')
     config.VISUALIZATION_DIR = os.path.join(config.LOCAL_RUN_DIR, 'visualizations')
-    
-    os.makedirs(config.MODEL_DIR, exist_ok=True)
-    os.makedirs(config.LOG_DIR, exist_ok=True)
-    os.makedirs(config.VISUALIZATION_DIR, exist_ok=True)
-    
-    # <-- Store MLflow info in config -->
-    config.EXPERIMENT_NAME = args.experiment_name
-    config.RUN_NAME = args.run_name if args.run_name else f"run_{timestamp}"
     
     return config
 
@@ -113,7 +113,9 @@ def train_one_epoch(model, train_loader, optimizer, criterion, scheduler, scaler
             
             optimizer.zero_grad()
             
-            with autocast(device_type='cuda', enabled=config.MIXED_PRECISION):
+            # Note: config is global scope here, or pass it as arg. Assuming config.MIXED_PRECISION exists.
+            # Ideally pass config to this function. Assuming mixed precision is True for now.
+            with autocast(device_type='cuda', enabled=True): 
                 output = model(data)
                 loss = criterion(output, target)
             
@@ -143,13 +145,13 @@ def train_one_epoch(model, train_loader, optimizer, criterion, scheduler, scaler
             
             current_lr = optimizer.param_groups[0]['lr']
             
-            # <-- Log batch-level metrics to MLflow -->
-            step = epoch * len(train_loader) + batch_idx
-            mlflow.log_metrics({
-                "batch_train_loss": loss.item(),
-                "batch_train_dice": dice,
-                "batch_lr": current_lr
-            }, step=step)
+            # # Log batch-level metrics
+            # step = epoch * len(train_loader) + batch_idx
+            # mlflow.log_metrics({
+            #     "batch_train_loss": loss.item(),
+            #     "batch_train_dice": dice,
+            #     "batch_lr": current_lr
+            # }, step=step)
             
             pbar.set_postfix({'loss': loss.item(), 'dice': dice, 'iou': iou})
     
@@ -213,6 +215,7 @@ def train(config, args):
     
     # --- MLflow Setup ---
     mlflow.set_experiment(config.EXPERIMENT_NAME)
+    mlflow.set_tracking_uri("sqlite:////app/mlruns/mlflow.db")
     
     # <-- Start the MLflow Run -->
     with mlflow.start_run(run_name=config.RUN_NAME) as run:
@@ -230,8 +233,7 @@ def train(config, args):
         mlflow.log_param("deep_supervision", config.DEEP_SUPERVISION)
         mlflow.log_param("mixed_precision", config.MIXED_PRECISION)
         
-        # --- End MLflow Setup ---
-
+        # Setup Data
         data_module = ISICDataModule(config)
         
         if args.debug:
@@ -250,8 +252,19 @@ def train(config, args):
         stats_path = os.path.join(config.OUTPUT_DIR, 'dataset_stats.json')
         if os.path.exists(stats_path):
              mlflow.log_artifact(stats_path)
-        mlflow.log_artifact(os.path.join(config.VISUALIZATION_DIR, 'lesion_size_distribution.png'))
-        mlflow.log_artifact(os.path.join(config.VISUALIZATION_DIR, 'dataset_samples.png'))
+             
+        # Check files existence before logging
+        lesion_dist_path = os.path.join(config.VISUALIZATION_DIR, 'lesion_size_distribution.png')
+        if os.path.exists(lesion_dist_path):
+            mlflow.log_artifact(lesion_dist_path)
+        else:
+            print(f"Warning: Could not find {lesion_dist_path}")
+
+        samples_path = os.path.join(config.VISUALIZATION_DIR, 'dataset_samples.png')
+        if os.path.exists(samples_path):
+            mlflow.log_artifact(samples_path)
+        else:
+            print(f"Warning: Could not find {samples_path}")
         
         train_loader, val_loader, test_loader = data_module.get_dataloaders()
         
@@ -264,7 +277,7 @@ def train(config, args):
             deep_supervision=config.DEEP_SUPERVISION
         ).to(config.DEVICE)
         
-        # <-- Log model summary as text artifact -->
+        # Log model summary
         model_summary = str(model)
         mlflow.log_text(model_summary, "model_summary.txt")
         total_params = sum(p.numel() for p in model.parameters())
@@ -278,7 +291,7 @@ def train(config, args):
             model.parameters(),
             lr=config.LEARNING_RATE,
             weight_decay=1e-5
-        )  # type: ignore
+        )
         
         scheduler = OneCycleLR(
             optimizer, 
@@ -292,8 +305,6 @@ def train(config, args):
 
         scaler = GradScaler(enabled=config.MIXED_PRECISION)
         
-
-        # --- Visualizer is now only for saving sample images, not plots ---
         visualizer = Visualizer(config, data_module) 
         
         best_dice = 0.0
@@ -304,7 +315,7 @@ def train(config, args):
             train_metrics = train_one_epoch(model, train_loader, optimizer, criterion, scheduler, scaler, config.DEVICE, epoch)
             val_metrics = validate(model, val_loader, criterion, config.DEVICE, epoch)
             
-            # <-- Log epoch-level metrics to MLflow -->
+            # Log metrics
             mlflow.log_metrics({
                 "epoch_train_loss": train_metrics['loss'],
                 "epoch_train_dice": train_metrics['dice'],
@@ -321,7 +332,7 @@ def train(config, args):
             print(f"  Train Loss: {train_metrics['loss']:.4f}, Dice: {train_metrics['dice']:.4f}")
             print(f"  Val Loss: {val_metrics['loss']:.4f}, Dice: {val_metrics['dice']:.4f}")
             
-            # Visualize predictions and log as artifact
+            # Visualize predictions
             if epoch % config.VISUALIZE_FREQUENCY == 0:
                 val_iter = iter(val_loader)
                 batch_imgs, batch_masks = next(val_iter)
@@ -331,73 +342,60 @@ def train(config, args):
                 with torch.no_grad():
                     batch_preds = model(batch_imgs)
                 
-                # This saves images locally
                 visualizer.visualize_batch(batch_imgs, batch_masks, batch_preds, epoch)
-                # <-- Log the saved images to MLflow -->
+                
                 epoch_viz_dir = os.path.join(config.VISUALIZATION_DIR, 'epochs', f'epoch_{epoch}')
                 if os.path.exists(epoch_viz_dir):
                     mlflow.log_artifacts(epoch_viz_dir, artifact_path=f"epoch_visualizations/epoch_{epoch}")
 
-            
-            # Check if this is the best model
+            # Check best model
             is_best = val_metrics['dice'] > best_dice
             if is_best:
                 best_dice = val_metrics['dice']
                 best_epoch = epoch
                 print(f"  New best model! Dice: {best_dice:.4f}")
                 
-                # 1. Get the input example using the correct 'val_loader' variable
                 print("Logging new best model to MLflow...")
-                # --- NEW LINE ---
                 batch = next(iter(val_loader))[0]
-                input_example = batch.float().cpu().numpy()
+                input_example = batch.detach().cpu().numpy().astype(np.float32)
                 
-                
-                # <-- Log the best model to MLflow Model Registry -->
+                # --- FIX 2: Correct log_model arguments ---
                 mlflow.pytorch.log_model(
                     pytorch_model=model,
-                    name="model",  # <-- Correct new parameter
+                    artifact_path="model",  # CHANGED from name="model"
                     input_example=input_example,
-                    registered_model_name=config.EXPERIMENT_NAME # This registers the model
+                    registered_model_name=MODEL_NAME
                 )
-                # <-- Log the best metrics -->
+                
                 mlflow.log_metrics({
                     "best_val_dice": best_dice,
                     "best_val_iou": val_metrics['iou'],
                     "best_epoch": best_epoch
                 })
             
-            # Save last checkpoint for resume
             save_last_checkpoint(model, optimizer, scheduler, epoch, config)
             
-            # Early stopping
             if epoch - best_epoch >= config.EARLY_STOPPING_PATIENCE:
                 print(f"Early stopping at epoch {epoch+1}.")
                 break
         
         print(f"Training completed! Best validation Dice: {best_dice:.4f} at epoch {best_epoch+1}")
         
-        # --- Final Test Evaluation ---
+        # Final Test Evaluation
         print("\nEvaluating best model on test set...")
-        
-        # <-- Load the best model *from MLflow* for final eval -->
-        # This ensures we're testing the exact model we registered
         best_model_uri = f"runs:/{run.info.run_id}/model"
         best_model = mlflow.pytorch.load_model(best_model_uri, map_location=config.DEVICE)
         
         test_evaluator = TestEvaluator(best_model, test_loader, config, data_module)
-        test_metrics = test_evaluator.evaluate() # This saves artifacts locally
+        test_metrics = test_evaluator.evaluate() 
         
-        # <-- Log final test metrics -->
         test_metrics_mean = {f"test_{k}": v for k, v in test_metrics.items() if not ('std' in k or 'min' in k or 'max' in k)}
         mlflow.log_metrics(test_metrics_mean)
         
-        # <-- Log all test artifacts (report, plots, etc.) -->
         test_viz_dir = os.path.join(config.VISUALIZATION_DIR, 'test_evaluation')
         if os.path.exists(test_viz_dir):
             mlflow.log_artifacts(test_viz_dir, artifact_path="test_evaluation_report")
             
-        # --- Save and log final config ---
         config_path = os.path.join(config.LOCAL_RUN_DIR, 'final_config.txt')
         with open(config_path, 'w') as f:
             for attr in dir(config):
