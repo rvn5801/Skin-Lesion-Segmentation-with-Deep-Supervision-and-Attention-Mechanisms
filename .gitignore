@@ -20,5 +20,9 @@ SkinLession_data/
 
 *.txt
 !requirements.txt
+<<<<<<< HEAD
 
 
+=======
+README.md
+>>>>>>> 9f7ec78a543478870a2cfe48336102c90de0760c
