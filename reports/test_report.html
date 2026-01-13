@@ -1,0 +1,82 @@
+
+        <html>
+        <head>
+            <title>ISIC 2018 Segmentation Model Evaluation Report</title>
+            <style>
+                body { font-family: Arial, sans-serif; margin: 20px; }
+                h1, h2, h3 { color: #333; }
+                table { border-collapse: collapse; width: 100%; margin-bottom: 20px; }
+                th, td { text-align: left; padding: 8px; border: 1px solid #ddd; }
+                th { background-color: #f2f2f2; }
+                .metrics { display: flex; flex-wrap: wrap; }
+                .metric-card { background-color: #f9f9f9; border-radius: 5px; 
+                               padding: 15px; margin: 10px; flex: 1; min-width: 200px; }
+                .metric-value { font-size: 24px; font-weight: bold; color: #0066cc; }
+                .images { display: flex; flex-wrap: wrap; justify-content: center; }
+                .image-container { margin: 10px; }
+                img { max-width: 100%; height: auto; border: 1px solid #ddd; }
+            </style>
+        </head>
+        <body>
+            <h1>ISIC 2018 Skin Lesion Segmentation Model Evaluation Report</h1>
+            <p><strong>Date:</strong> 2025-12-04 21:56:15</p>
+            
+            <h2>Model Performance Metrics</h2>
+            <div class="metrics">
+                <div class="metric-card">
+                    <h3>Dice Coefficient</h3>
+                    <div class="metric-value">0.8356</div>
+                    <p>Min: 0.0000 | Max: 0.9851 | StdDev: 0.1495</p>
+                </div>
+                <div class="metric-card">
+                    <h3>IoU (Jaccard)</h3>
+                    <div class="metric-value">0.7397</div>
+                    <p>Min: 0.0000 | Max: 0.9706 | StdDev: 0.1750</p>
+                </div>
+                <div class="metric-card">
+                    <h3>Precision</h3>
+                    <div class="metric-value">0.8057</div>
+                    <p>Min: 0.0000 | Max: 1.0000</p>
+                </div>
+                <div class="metric-card">
+                    <h3>Recall</h3>
+                    <div class="metric-value">0.9223</div>
+                    <p>Min: 0.0000 | Max: 1.0000</p>
+                </div>
+                <div class="metric-card">
+                    <h3>F1 Score</h3>
+                    <div class="metric-value">0.8357</div>
+                    <p>Min: 0.0000 | Max: 0.9854</p>
+                </div>
+            </div>
+            
+            <h2>Visualization Results</h2>
+            
+            <h3>Best Predictions</h3>
+            <div class="images">
+                <div class="image-container">
+                    <img src="best_predictions.png" alt="Best Predictions">
+                </div>
+            </div>
+            
+            <h3>Worst Predictions</h3>
+            <div class="images">
+                <div class="image-container">
+                    <img src="worst_predictions.png" alt="Worst Predictions">
+                </div>
+            </div>
+            
+            <h2>Conclusion</h2>
+            <p>The model achieves a mean Dice coefficient of 0.8356 on the test set,
+               with an IoU of 0.7397. The precision is 0.8057 and
+               the recall is 0.9223, resulting in an F1 score of 0.8357.</p>
+               
+            <p>Areas for improvement:</p>
+            <ul>
+                <li>Better handling of boundary regions to reduce false positives</li>
+                <li>Improved detection of small lesions to reduce false negatives</li>
+                <li>More robust segmentation for cases with low contrast</li>
+            </ul>
+        </body>
+        </html>
+        
