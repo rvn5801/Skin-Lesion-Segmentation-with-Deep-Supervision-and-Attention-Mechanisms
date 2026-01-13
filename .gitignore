@@ -1,12 +1,24 @@
-# 1. Ignore EVERYTHING
-*
+# Python
+__pycache__/
+*.pyc
 
-# 2. But... DO NOT ignore directories
-!*/
+# Notebooks & data
+*.ipynb
+*.csv
+*.db
+*.bat
 
-# 3. But... DO NOT ignore the files we want
-!*.py
-!*.yml
+# ML / experiment artifacts
+mlruns/
+outputs/
+predictions_sorted_by_dice/
+SkinLession_data/
 
-# 4. Don't forget to track the .gitignore file itself
-!/.gitignore
+# OS / editor
+.DS_Store
+.vscode/
+
+*.txt
+!requirements.txt
+
+
